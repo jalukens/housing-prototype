@@ -7,17 +7,17 @@ import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Progress } from '@/components/ui/progress'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Home, User, ArrowRight, ArrowLeft, DollarSign, CreditCard, MapPin, CheckCircle2, Gift, TrendingUp, Building, Star, Phone, Mail, ExternalLink } from 'lucide-react'
+import { Home, User, ArrowRight, ArrowLeft, DollarSign, CreditCard, MapPin, CheckCircle2, Gift, TrendingUp, Building, Star, Phone, Mail, ExternalLink, Upload, FileText, X, Calendar, Clock, Video, MessageSquare } from 'lucide-react'
 
 // Constants
 const COUNTIES = ['Denver', 'Boulder', 'Jefferson', 'Arapahoe', 'Adams', 'El Paso', 'Douglas', 'Larimer', 'Weld', 'Pueblo']
 const CREDIT_RANGES = [
-  { value: 'below-580', label: 'Below 580' },
-  { value: '580-619', label: '580-619' },
-  { value: '620-659', label: '620-659' },
-  { value: '660-699', label: '660-699' },
+  { value: '740-plus', label: '740+' },
   { value: '700-739', label: '700-739' },
-  { value: '740-plus', label: '740+' }
+  { value: '660-699', label: '660-699' },
+  { value: '620-659', label: '620-659' },
+  { value: '580-619', label: '580-619' },
+  { value: 'below-580', label: 'Below 580' }
 ]
 const STEPS = ['Profile', 'Affordability', 'Programs', 'Roadmap', 'Prepare', 'Realtor', 'Pre-Approval', 'Apply', 'Complete']
 
@@ -97,6 +97,8 @@ function getCreditMin(creditRange) {
 
 function App() {
   const [step, setStep] = useState(0)
+  const [showSchedulePopup, setShowSchedulePopup] = useState(false)
+  const [showLenderPopup, setShowLenderPopup] = useState(false)
   const [formData, setFormData] = useState({
     location: '',
     income: '',
@@ -105,10 +107,43 @@ function App() {
     firstTimeBuyer: true,
     selectedPackage: null,
     selectedRealtor: null,
-    selectedLender: null
+    selectedLender: null,
+    documents: {
+      payStubs: [],
+      taxReturns: [],
+      bankStatements: [],
+      photoId: [],
+      homeEducation: []
+    }
   })
 
   const updateFormData = (updates) => setFormData(prev => ({ ...prev, ...updates }))
+
+  const handleFileUpload = (docType, files) => {
+    const newFiles = Array.from(files).map(file => ({
+      name: file.name,
+      size: file.size,
+      type: file.type,
+      uploadedAt: new Date().toISOString()
+    }))
+    setFormData(prev => ({
+      ...prev,
+      documents: {
+        ...prev.documents,
+        [docType]: [...prev.documents[docType], ...newFiles]
+      }
+    }))
+  }
+
+  const removeFile = (docType, fileName) => {
+    setFormData(prev => ({
+      ...prev,
+      documents: {
+        ...prev.documents,
+        [docType]: prev.documents[docType].filter(f => f.name !== fileName)
+      }
+    }))
+  }
 
   // Calculate eligible programs
   const eligiblePrograms = useMemo(() => {
@@ -169,7 +204,10 @@ function App() {
                 <User className="w-10 h-10 text-white" />
               </div>
               <h1 className="text-3xl font-bold text-gray-900">Welcome to the Navigator</h1>
-              <p className="text-lg text-gray-600">Let's find the best programs for you.</p>
+              <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+                Find down payment assistance programs you qualify for, see how much you can afford,
+                and get connected with Down Payment Assistance-experienced professionals to guide you home.
+              </p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-6">
@@ -234,7 +272,7 @@ function App() {
                     <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
                       <TrendingUp className="w-5 h-5 text-purple-600" />
                     </div>
-                    <CardTitle>Savings</CardTitle>
+                    <CardTitle>Down Payment Saved</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -266,7 +304,13 @@ function App() {
 
       case 1: // Affordability
         const maxPrice = Math.min((parseInt(formData.income) || 0) * 4.5, 600000)
+        const minPrice = Math.round(maxPrice * 0.65)
         const requiredDown = maxPrice * 0.035
+        const calcMonthly = (price) => {
+          const loan = price * 0.965
+          const monthly = (loan * 0.065 / 12) + (price * 0.007 / 12) + 150
+          return Math.round(monthly)
+        }
 
         return (
           <div className="space-y-8">
@@ -309,12 +353,25 @@ function App() {
             </Card>
 
             <div className="grid md:grid-cols-3 gap-6">
-              <Card className="border-2 border-green-200 bg-green-50">
-                <CardContent className="pt-6 text-center">
-                  <p className="text-sm text-green-700 mb-2">Max Home Price</p>
-                  <p className="text-3xl font-bold text-green-800">{formatCurrency(maxPrice)}</p>
+              <Card className="border-2 border-green-200 bg-green-50 col-span-full">
+                <CardContent className="pt-6">
+                  <p className="text-sm text-green-700 mb-3 text-center font-medium">What You Can Afford</p>
+                  <div className="flex items-center justify-center gap-4">
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-green-800">{formatCurrency(minPrice)}</p>
+                      <p className="text-xs text-green-600">{formatCurrency(calcMonthly(minPrice))}/mo</p>
+                    </div>
+                    <div className="text-green-400 font-bold text-xl">→</div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-green-800">{formatCurrency(maxPrice)}</p>
+                      <p className="text-xs text-green-600">{formatCurrency(calcMonthly(maxPrice))}/mo</p>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6">
               <Card className="border-2 border-blue-200 bg-blue-50">
                 <CardContent className="pt-6 text-center">
                   <p className="text-sm text-blue-700 mb-2">Required Down (3.5%)</p>
@@ -323,7 +380,7 @@ function App() {
               </Card>
               <Card className="border-2 border-purple-200 bg-purple-50">
                 <CardContent className="pt-6 text-center">
-                  <p className="text-sm text-purple-700 mb-2">Best DPA Available</p>
+                  <p className="text-sm text-purple-700 mb-2">Best Down Payment Assistance</p>
                   <p className="text-3xl font-bold text-purple-800">{formatCurrency(packages[0]?.assistance || 0)}</p>
                 </CardContent>
               </Card>
@@ -409,31 +466,31 @@ function App() {
           {
             phase: PHASES[0], // Learn (Blue)
             tasks: [
-              { title: 'Assess Your Finances', desc: 'Review income, savings, and credit', done: true },
-              { title: 'Explore Programs', desc: 'Find DPA options you qualify for', done: true },
-              { title: 'Choose Your Package', desc: 'Select the best assistance program', done: true }
+              { title: 'Assess Your Finances', desc: 'Review income, savings, and credit', done: true, goToStep: 0 },
+              { title: 'Explore Programs', desc: 'Find Down Payment Assistance options you qualify for', done: true, goToStep: 1 },
+              { title: 'Choose Your Package', desc: 'Select the best assistance program', done: true, goToStep: 2 }
             ]
           },
           {
             phase: PHASES[1], // Prepare (Amber)
             tasks: [
-              { title: 'Complete Homebuyer Education', desc: 'Required 8-hour HUD-approved course', done: false },
-              { title: 'Gather Documents', desc: 'Pay stubs, tax returns, bank statements', done: false }
+              { title: 'Complete Homebuyer Education', desc: 'Required 8-hour HUD-approved course', done: false, goToStep: 4 },
+              { title: 'Gather Documents', desc: 'Pay stubs, tax returns, bank statements', done: false, goToStep: 4 }
             ]
           },
           {
             phase: PHASES[2], // Connect (Purple)
             tasks: [
-              { title: 'Choose Your Realtor', desc: 'Work with a DPA-experienced agent', done: false },
-              { title: 'Get Pre-Approved', desc: 'Partner with a DPA-approved lender', done: false }
+              { title: 'Choose Your Realtor', desc: 'Work with a Down Payment Assistance-experienced agent', done: false, goToStep: 5 },
+              { title: 'Get Pre-Approved', desc: 'Partner with a Down Payment Assistance-approved lender', done: false, goToStep: 6 }
             ]
           },
           {
             phase: PHASES[3], // Apply (Green)
             tasks: [
-              { title: 'Find Your Home', desc: 'Shop within your approved budget', done: false },
-              { title: 'Submit DPA Application', desc: 'Apply for your assistance package', done: false },
-              { title: 'Close on Your Home', desc: 'Sign papers and get your keys!', done: false }
+              { title: 'Find Your Home', desc: 'Shop within your approved budget', done: false, goToStep: null },
+              { title: 'Submit Application', desc: 'Apply for your assistance package', done: false, goToStep: 7 },
+              { title: 'Close on Your Home', desc: 'Sign papers and get your keys!', done: false, goToStep: 8 }
             ]
           }
         ]
@@ -477,18 +534,27 @@ function App() {
                   <CardContent className="pt-4">
                     <div className="space-y-3">
                       {section.tasks.map((task, taskIdx) => (
-                        <div key={taskIdx} className="flex items-center gap-3 p-2">
-                          <div className={`w-6 h-6 rounded-full flex items-center justify-center ${task.done ? 'bg-green-100' : 'bg-gray-100'}`}>
-                            {task.done ? (
-                              <CheckCircle2 className="w-4 h-4 text-green-600" />
-                            ) : (
-                              <div className={`w-2 h-2 rounded-full ${section.phase.color}`} />
-                            )}
+                        <div
+                          key={taskIdx}
+                          className={`flex items-center justify-between gap-3 p-2 rounded-lg transition-colors ${task.goToStep !== null ? 'cursor-pointer hover:bg-gray-50' : ''}`}
+                          onClick={() => task.goToStep !== null && setStep(task.goToStep)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center ${task.done ? 'bg-green-100' : 'bg-gray-100'}`}>
+                              {task.done ? (
+                                <CheckCircle2 className="w-4 h-4 text-green-600" />
+                              ) : (
+                                <div className={`w-2 h-2 rounded-full ${section.phase.color}`} />
+                              )}
+                            </div>
+                            <div>
+                              <p className={`font-medium ${task.done ? 'text-gray-400 line-through' : 'text-gray-900'}`}>{task.title}</p>
+                              <p className="text-sm text-gray-500">{task.desc}</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className={`font-medium ${task.done ? 'text-gray-400 line-through' : 'text-gray-900'}`}>{task.title}</p>
-                            <p className="text-sm text-gray-500">{task.desc}</p>
-                          </div>
+                          {task.goToStep !== null && (
+                            <ArrowRight className="w-4 h-4 text-gray-400" />
+                          )}
                         </div>
                       ))}
                     </div>
@@ -500,44 +566,134 @@ function App() {
         )
 
       case 4: // Prepare
+        const documentTypes = [
+          { key: 'payStubs', label: 'Pay Stubs', description: 'Last 2 pay stubs', required: 2 },
+          { key: 'taxReturns', label: 'Tax Returns', description: 'Last 2 years tax returns', required: 2 },
+          { key: 'bankStatements', label: 'Bank Statements', description: '2 months bank statements', required: 2 },
+          { key: 'photoId', label: 'Photo ID', description: 'Government-issued ID', required: 1 },
+          { key: 'homeEducation', label: 'Homebuyer Education Certificate', description: 'Certificate of completion', required: 1 }
+        ]
+
         return (
           <div className="space-y-8">
             <div className="text-center space-y-4">
               <div className="w-20 h-20 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center mx-auto shadow-lg">
-                <CheckCircle2 className="w-10 h-10 text-white" />
+                <FileText className="w-10 h-10 text-white" />
               </div>
-              <h1 className="text-3xl font-bold text-gray-900">Prepare Your Application</h1>
-              <p className="text-lg text-gray-600">Get these items ready before applying</p>
+              <h1 className="text-3xl font-bold text-gray-900">Document Center</h1>
+              <p className="text-lg text-gray-600">Upload your documents to keep everything in one place</p>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-6">
-              <Card className="border-2">
-                <CardHeader>
-                  <CardTitle>Homebuyer Education</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <p className="text-gray-600">Complete an 8-hour HUD-approved homebuyer education course.</p>
-                  <Button variant="outline" className="w-full">
-                    <ExternalLink className="w-4 h-4 mr-2" />
-                    Find a Course
-                  </Button>
-                </CardContent>
-              </Card>
+            {/* Homebuyer Education Card */}
+            <Card className="border-2 border-amber-200 bg-amber-50">
+              <CardContent className="pt-6">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 bg-amber-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <ExternalLink className="w-6 h-6 text-amber-700" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-amber-900">Homebuyer Education Course</h3>
+                    <p className="text-sm text-amber-700 mt-1">Complete an 8-hour HUD-approved course. Required for most Down Payment Assistance programs.</p>
+                    <Button variant="outline" size="sm" className="mt-3">
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      Find a Course
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-              <Card className="border-2">
-                <CardHeader>
-                  <CardTitle>Required Documents</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2 text-gray-600">
-                    <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-500" /> Last 2 pay stubs</li>
-                    <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-500" /> Last 2 years tax returns</li>
-                    <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-500" /> 2 months bank statements</li>
-                    <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-500" /> Photo ID</li>
-                  </ul>
-                </CardContent>
-              </Card>
+            {/* Document Upload Cards */}
+            <div className="space-y-4">
+              {documentTypes.map(docType => {
+                const uploadedFiles = formData.documents[docType.key] || []
+                const isComplete = uploadedFiles.length >= docType.required
+
+                return (
+                  <Card key={docType.key} className={`border-2 ${isComplete ? 'border-green-200 bg-green-50/50' : ''}`}>
+                    <CardContent className="pt-6">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-start gap-3">
+                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isComplete ? 'bg-green-100' : 'bg-gray-100'}`}>
+                            {isComplete ? (
+                              <CheckCircle2 className="w-5 h-5 text-green-600" />
+                            ) : (
+                              <FileText className="w-5 h-5 text-gray-400" />
+                            )}
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-gray-900">{docType.label}</h3>
+                            <p className="text-sm text-gray-500">{docType.description}</p>
+                            <p className="text-xs text-gray-400 mt-1">
+                              {uploadedFiles.length} of {docType.required} uploaded
+                            </p>
+                          </div>
+                        </div>
+
+                        <label className="cursor-pointer">
+                          <input
+                            type="file"
+                            multiple
+                            className="hidden"
+                            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                            onChange={(e) => handleFileUpload(docType.key, e.target.files)}
+                          />
+                          <div className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                            <Upload className="w-4 h-4" />
+                            <span className="text-sm font-medium">Upload</span>
+                          </div>
+                        </label>
+                      </div>
+
+                      {/* Uploaded Files List */}
+                      {uploadedFiles.length > 0 && (
+                        <div className="mt-4 space-y-2">
+                          {uploadedFiles.map((file, idx) => (
+                            <div key={idx} className="flex items-center justify-between p-2 bg-white rounded-lg border">
+                              <div className="flex items-center gap-2">
+                                <FileText className="w-4 h-4 text-blue-500" />
+                                <span className="text-sm text-gray-700 truncate max-w-[200px]">{file.name}</span>
+                                <span className="text-xs text-gray-400">
+                                  ({(file.size / 1024).toFixed(0)} KB)
+                                </span>
+                              </div>
+                              <button
+                                onClick={() => removeFile(docType.key, file.name)}
+                                className="p-1 hover:bg-red-100 rounded transition-colors"
+                              >
+                                <X className="w-4 h-4 text-red-500" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )
+              })}
             </div>
+
+            {/* Progress Summary */}
+            <Card className="border-2">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold text-gray-900">Document Progress</h3>
+                    <p className="text-sm text-gray-500">
+                      {documentTypes.filter(d => (formData.documents[d.key]?.length || 0) >= d.required).length} of {documentTypes.length} categories complete
+                    </p>
+                  </div>
+                  <div className="flex gap-1">
+                    {documentTypes.map(d => (
+                      <div
+                        key={d.key}
+                        className={`w-3 h-3 rounded-full ${(formData.documents[d.key]?.length || 0) >= d.required ? 'bg-green-500' : 'bg-gray-200'}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )
 
@@ -549,32 +705,105 @@ function App() {
                 <Building className="w-10 h-10 text-white" />
               </div>
               <h1 className="text-3xl font-bold text-gray-900">Choose Your Realtor</h1>
-              <p className="text-lg text-gray-600">DPA-experienced agents in {formData.location || 'your area'}</p>
+              <p className="text-lg text-gray-600">Down Payment Assistance-experienced agents in {formData.location || 'your area'}</p>
             </div>
 
             <div className="space-y-4">
               {matchingRealtors.map(realtor => (
-                <Card
-                  key={realtor.id}
-                  className={`border-2 cursor-pointer transition-all ${formData.selectedRealtor?.id === realtor.id ? 'border-blue-500 ring-2 ring-blue-200' : 'hover:border-gray-300'}`}
-                  onClick={() => updateFormData({ selectedRealtor: realtor })}
-                >
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="text-xl font-bold">{realtor.name}</h3>
-                        <p className="text-gray-600">{realtor.company}</p>
-                        <div className="flex items-center gap-4 mt-2">
-                          <span className="flex items-center gap-1 text-amber-500">
-                            <Star className="w-4 h-4 fill-current" /> {realtor.rating}
-                          </span>
-                          <span className="text-sm text-gray-500">{realtor.dpaDeals} DPA transactions</span>
+                <div key={realtor.id} className="relative">
+                  <Card
+                    className={`border-2 cursor-pointer transition-all ${formData.selectedRealtor?.id === realtor.id ? 'border-blue-500 ring-2 ring-blue-200' : 'hover:border-gray-300'}`}
+                    onClick={() => {
+                      updateFormData({ selectedRealtor: realtor })
+                      setShowSchedulePopup(true)
+                    }}
+                  >
+                    <CardContent className="pt-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-xl font-bold">{realtor.name}</h3>
+                          <p className="text-gray-600">{realtor.company}</p>
+                          <div className="flex items-center gap-4 mt-2">
+                            <span className="flex items-center gap-1 text-amber-500">
+                              <Star className="w-4 h-4 fill-current" /> {realtor.rating}
+                            </span>
+                            <span className="text-sm text-gray-500">{realtor.dpaDeals} Down Payment Assistance transactions</span>
+                          </div>
                         </div>
+                        <Button variant="outline">Select</Button>
                       </div>
-                      <Button variant="outline">Contact</Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+
+                  {/* Schedule Meeting Popup */}
+                  {showSchedulePopup && formData.selectedRealtor?.id === realtor.id && (
+                    <Card className="absolute top-full left-0 right-0 mt-2 z-10 border-2 border-blue-300 shadow-xl">
+                      <CardHeader className="pb-2">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-lg">Schedule a Meeting with {realtor.name}</CardTitle>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setShowSchedulePopup(false); }}
+                            className="p-1 hover:bg-gray-100 rounded"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <p className="text-sm text-gray-600">Choose how you'd like to connect:</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button
+                            variant="outline"
+                            className="flex items-center gap-2 h-auto py-3"
+                            onClick={(e) => { e.stopPropagation(); setShowSchedulePopup(false); }}
+                          >
+                            <Video className="w-4 h-4 text-blue-600" />
+                            <div className="text-left">
+                              <p className="font-medium text-sm">Video Call</p>
+                              <p className="text-xs text-gray-500">30 min intro</p>
+                            </div>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="flex items-center gap-2 h-auto py-3"
+                            onClick={(e) => { e.stopPropagation(); setShowSchedulePopup(false); }}
+                          >
+                            <Phone className="w-4 h-4 text-green-600" />
+                            <div className="text-left">
+                              <p className="font-medium text-sm">Phone Call</p>
+                              <p className="text-xs text-gray-500">Quick chat</p>
+                            </div>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="flex items-center gap-2 h-auto py-3"
+                            onClick={(e) => { e.stopPropagation(); setShowSchedulePopup(false); }}
+                          >
+                            <Calendar className="w-4 h-4 text-purple-600" />
+                            <div className="text-left">
+                              <p className="font-medium text-sm">In-Person</p>
+                              <p className="text-xs text-gray-500">Meet at office</p>
+                            </div>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="flex items-center gap-2 h-auto py-3"
+                            onClick={(e) => { e.stopPropagation(); setShowSchedulePopup(false); }}
+                          >
+                            <MessageSquare className="w-4 h-4 text-amber-600" />
+                            <div className="text-left">
+                              <p className="font-medium text-sm">Send Message</p>
+                              <p className="text-xs text-gray-500">Email intro</p>
+                            </div>
+                          </Button>
+                        </div>
+                        <div className="pt-2 border-t">
+                          <p className="text-xs text-gray-500 text-center">Select an option to continue</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
               ))}
             </div>
           </div>
@@ -588,33 +817,106 @@ function App() {
                 <CreditCard className="w-10 h-10 text-white" />
               </div>
               <h1 className="text-3xl font-bold text-gray-900">Get Pre-Approved</h1>
-              <p className="text-lg text-gray-600">Work with a DPA-experienced lender</p>
+              <p className="text-lg text-gray-600">Work with a Down Payment Assistance-experienced lender</p>
             </div>
 
             <div className="space-y-4">
               {matchingLenders.map(lender => (
-                <Card
-                  key={lender.id}
-                  className={`border-2 cursor-pointer transition-all ${formData.selectedLender?.id === lender.id ? 'border-blue-500 ring-2 ring-blue-200' : 'hover:border-gray-300'}`}
-                  onClick={() => updateFormData({ selectedLender: lender })}
-                >
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="text-xl font-bold">{lender.name}</h3>
-                        <div className="flex items-center gap-4 mt-2">
-                          <span className="flex items-center gap-1 text-amber-500">
-                            <Star className="w-4 h-4 fill-current" /> {lender.rating}
-                          </span>
-                          <span className="flex items-center gap-1 text-gray-500">
-                            <Phone className="w-4 h-4" /> {lender.phone}
-                          </span>
+                <div key={lender.id} className="relative">
+                  <Card
+                    className={`border-2 cursor-pointer transition-all ${formData.selectedLender?.id === lender.id ? 'border-blue-500 ring-2 ring-blue-200' : 'hover:border-gray-300'}`}
+                    onClick={() => {
+                      updateFormData({ selectedLender: lender })
+                      setShowLenderPopup(true)
+                    }}
+                  >
+                    <CardContent className="pt-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-xl font-bold">{lender.name}</h3>
+                          <div className="flex items-center gap-4 mt-2">
+                            <span className="flex items-center gap-1 text-amber-500">
+                              <Star className="w-4 h-4 fill-current" /> {lender.rating}
+                            </span>
+                            <span className="flex items-center gap-1 text-gray-500">
+                              <Phone className="w-4 h-4" /> {lender.phone}
+                            </span>
+                          </div>
                         </div>
+                        <Button variant="outline">Select</Button>
                       </div>
-                      <Button variant="outline">Contact</Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+
+                  {/* Schedule Meeting Popup */}
+                  {showLenderPopup && formData.selectedLender?.id === lender.id && (
+                    <Card className="absolute top-full left-0 right-0 mt-2 z-10 border-2 border-blue-300 shadow-xl">
+                      <CardHeader className="pb-2">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-lg">Connect with {lender.name}</CardTitle>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setShowLenderPopup(false); }}
+                            className="p-1 hover:bg-gray-100 rounded"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <p className="text-sm text-gray-600">Choose how you'd like to connect:</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button
+                            variant="outline"
+                            className="flex items-center gap-2 h-auto py-3"
+                            onClick={(e) => { e.stopPropagation(); setShowLenderPopup(false); }}
+                          >
+                            <Video className="w-4 h-4 text-blue-600" />
+                            <div className="text-left">
+                              <p className="font-medium text-sm">Video Call</p>
+                              <p className="text-xs text-gray-500">30 min consult</p>
+                            </div>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="flex items-center gap-2 h-auto py-3"
+                            onClick={(e) => { e.stopPropagation(); setShowLenderPopup(false); }}
+                          >
+                            <Phone className="w-4 h-4 text-green-600" />
+                            <div className="text-left">
+                              <p className="font-medium text-sm">Phone Call</p>
+                              <p className="text-xs text-gray-500">Quick chat</p>
+                            </div>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="flex items-center gap-2 h-auto py-3"
+                            onClick={(e) => { e.stopPropagation(); setShowLenderPopup(false); }}
+                          >
+                            <Calendar className="w-4 h-4 text-purple-600" />
+                            <div className="text-left">
+                              <p className="font-medium text-sm">In-Person</p>
+                              <p className="text-xs text-gray-500">Branch visit</p>
+                            </div>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="flex items-center gap-2 h-auto py-3"
+                            onClick={(e) => { e.stopPropagation(); setShowLenderPopup(false); }}
+                          >
+                            <MessageSquare className="w-4 h-4 text-amber-600" />
+                            <div className="text-left">
+                              <p className="font-medium text-sm">Send Message</p>
+                              <p className="text-xs text-gray-500">Email inquiry</p>
+                            </div>
+                          </Button>
+                        </div>
+                        <div className="pt-2 border-t">
+                          <p className="text-xs text-gray-500 text-center">Select an option to start pre-approval</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
               ))}
             </div>
           </div>
@@ -627,7 +929,7 @@ function App() {
               <div className="w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto shadow-lg">
                 <CheckCircle2 className="w-10 h-10 text-white" />
               </div>
-              <h1 className="text-3xl font-bold text-gray-900">Apply for DPA</h1>
+              <h1 className="text-3xl font-bold text-gray-900">Apply for Down Payment Assistance</h1>
               <p className="text-lg text-gray-600">You're ready to apply!</p>
             </div>
 
@@ -686,7 +988,7 @@ function App() {
               </CardContent>
             </Card>
 
-            <Button variant="outline" size="lg" className="w-full" onClick={() => { setStep(0); setFormData({ location: '', income: '', creditScore: '', savings: '', firstTimeBuyer: true, selectedPackage: null, selectedRealtor: null, selectedLender: null }); }}>
+            <Button variant="outline" size="lg" className="w-full" onClick={() => { setStep(0); setFormData({ location: '', income: '', creditScore: '', savings: '', firstTimeBuyer: true, selectedPackage: null, selectedRealtor: null, selectedLender: null, documents: { payStubs: [], taxReturns: [], bankStatements: [], photoId: [], homeEducation: [] } }); }}>
               Start Over
             </Button>
           </div>
@@ -700,17 +1002,40 @@ function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       <header className="bg-white border-b shadow-sm sticky top-0 z-50">
-        <div className="max-w-4xl mx-auto px-4 py-4">
-          <div className="flex items-center gap-3 mb-4">
+        <div className="max-w-4xl mx-auto px-4 py-3">
+          <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center">
               <Home className="w-5 h-5 text-white" />
             </div>
             <div>
               <h1 className="text-xl font-bold text-gray-900">Colorado Homebuyer Navigator</h1>
-              <p className="text-sm text-gray-500">Step {step + 1} of {STEPS.length}: {STEPS[step]}</p>
             </div>
           </div>
-          <Progress value={progressValue} className="h-2" />
+          <div className="flex items-center gap-1">
+            {STEPS.map((stepName, idx) => {
+              const phase = PHASES.find(p => p.steps.includes(idx))
+              const isComplete = idx < step
+              const isCurrent = idx === step
+              return (
+                <div key={stepName} className="flex-1 flex flex-col items-center">
+                  <div
+                    className={`w-full h-2 rounded-full transition-all ${
+                      isComplete ? phase?.color || 'bg-blue-500' :
+                      isCurrent ? phase?.color || 'bg-blue-500' :
+                      'bg-gray-200'
+                    }`}
+                  />
+                  <span className={`text-[10px] mt-1 truncate max-w-full ${
+                    isCurrent ? 'font-semibold text-gray-900' :
+                    isComplete ? 'text-gray-600' :
+                    'text-gray-400'
+                  }`}>
+                    {stepName}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
         </div>
       </header>
 
